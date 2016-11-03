@@ -54,6 +54,13 @@ t_LBRACE = r'\{'
 t_RBRACE = r'\}'
 t_DOUBLEQUOTE = r'\"'
 
+def t_error(t):
+	raise SyntaxError, "Line %d: Illegal character '%s'" % (t.lexer.lineno, t.value[0])
+
+t_zone_error = t_error
+t_file_error = t_error
+t_directory_error = t_error
+
 def t_IPSPEC(t):
 	# r'(\d+\.\d+\.\d+\.\d+|{7}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])|{1,7}({1,4}(\d|[abcdef])\:)\:{1,7}({1,4}(\d|[abcdef]))|\:\:{1,6}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])|{1,6}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])\:\:)/d+'
 	r'\d+\.\d+\.\d+\.\d+/\d+'
@@ -67,7 +74,7 @@ t_zone_ignore = t_ignore
 t_zone_newline = t_newline
 #t_zone_DOUBLEQUOTE = t_DOUBLEQUOTE
 def t_zone_DOMAIN(t):
-	r'\".+\"'
+	r'\"[a-zA-Z0-9_\-\.]+\"'
 	t.value = t.value.strip('"')
 	if t.value[-1] != '.':
 		t.value = t.value + '.'
