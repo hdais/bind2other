@@ -70,7 +70,7 @@ acl ournetwork { mynetwork1; mynetwork2; }; # ACLのネストもOK
 # acl evil_in_theinternet { 0.0.0.0/0; ! 1.1.1.1; }; 
 ```
 
-### options文で使える文
+### options
 ```
 options {
   directory "/etc";
