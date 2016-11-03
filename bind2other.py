@@ -486,7 +486,7 @@ def dnsdist(conf,
 	
 	confline = ""
 	confline += 'newServer({address="%s", pool="resolver"})\n' % resolveraddr
-	confline += 'newServer({address="%s", pool="authaddr"})\n' % authaddr
+	confline += 'newServer({address="%s", pool="auth"})\n' % authaddr
 
 	confline += 'allow_query = newNMG()\n'
 	for a in conf.options.allow_query:
@@ -519,8 +519,8 @@ def nsd(conf, authaddr="127.0.0.1:10053"):
 	if conf.options.directory:
 		confline += ' zonesdir: "%s"\n' % conf.options.directory
 	confline += ' ip-address: %s\n' % authaddr.replace(':', '@')
-	confline += ' username: ""\n'
-	confline += ' chroot: ""\n'
+	#confline += ' username: ""\n'
+	#confline += ' chroot: ""\n'
 
 	for z in conf.zones:
 		confline += 'zone:\n'
@@ -539,8 +539,8 @@ def unbound(conf, resolveraddr="127.0.0.1:10054"):
 	confline += 'server:\n'
 	confline += ' interface: %s\n' % resolveraddr.replace(':', '@')
 	confline += ' access-control: 127.0.0.1 allow\n'
-	confline += ' username: ""\n'
-	confline += ' chroot: ""\n'
+	# confline += ' username: ""\n'
+	# confline += ' chroot: ""\n'
 	return confline
 
 import sys
