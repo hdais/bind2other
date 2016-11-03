@@ -462,12 +462,13 @@ function xfr_query(dq)
         if(dq.qtype == dnsdist.AXFR or dq.qtype == dnsdist.IXFR)
         then
                 a = allow_transfer[string.lower(dq.qname:toString())]
-                if(a)
+		if(not (a))
+		then
+			a = allow_transfer_global
+		end
+                if(a:match(dq.remoteaddr))
                 then
-                        if(a:match(dq.remoteaddr))
-                        then
-                                return DNSAction.Pool, "auth"
-                        end
+                	return DNSAction.Pool, "auth"
                 end
         end
         return DNSAction.None, ""
