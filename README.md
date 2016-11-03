@@ -55,7 +55,7 @@ Unboundは、通常のDNSリゾルバとして動作し、127.0.0.1:10054でク�
   - ローカルゾーンへのクエリの場合、NSDにフォワードする。ただし、クエリタイプがAXFR/IXFRの場合は、allow-transfer (options、または各 zone) に従って許可・拒否を行う。
   - ローカルソーン宛てではない、かつ allow-recursion にマッチするソースIPのクエリのみ、Unboundにフォワードされる。
   
-## いまのところ使える named.conf の機能
+## 対応する named.conf の機能
 
 BIND9のごく一部の機能のみ対応する。viewなどは未対応だが、キャッシュと権威の同居等は可能。
 
@@ -77,7 +77,7 @@ options {
   allow-query { any; };                    # デフォルトは ANY (BIND9と同じ) 
   allow-recursion { ournetwork; };         # デフォルトは none (BIND9は localhost; localnets) 
   allow-transfer { mynetwork1; 1.1.1.1; }; # デフォルトは none (BIND9は any)
-}
+};
 ```
 
 ### zone
@@ -88,12 +88,12 @@ zone "example.com" {
   type master;
   file "example.com.zone";
   allow-transfer { none; };  # optionsの allow-transferより優先
-}
+};
 
 zone "example2.com" {
   type slave;
   masters { 10.0.0.1; 192.0.2.1; };
   allow-transfer { mynetwork2; 127.0.0.1; }; # optionsの allow-transferより優先
-}
+};
 ```
 
