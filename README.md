@@ -44,7 +44,7 @@ Unboundは、通常のDNSリゾルバとして動作し、127.0.0.1:10054でク�
 
 ### アクセス権限
 
-  - 最初に、allow-query にマッチしないソースIPのクエリはREFUSED
+  - allow-query にマッチしないソースIPのクエリは常にREFUSED
   - ローカルゾーンへのクエリの場合、NSDにフォワードする。ただし、クエリタイプがAXFR/IXFRの場合は、allow-transfer (options、または各 zone) に従って許可・拒否を行う。
   - ローカルソーン宛てではない、かつ allow-recursion にマッチするソースIPのクエリのみ、Unboundにフォワードされる。
   
