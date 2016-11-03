@@ -3,6 +3,7 @@
 named.conf から、それとなるべく同等の動きをする NSD, Unbound, dnsdist のコンフィグを作る
 
 ## 使い方
+
 ```./bind2other.py named.conf
 ```
 
