@@ -20,6 +20,13 @@ dig @127.0.0.1 www.google.com # ローカルゾーン以外
 ```
 ## どのようなコンフィグができるか?
 
+  - 元の [named.conf](https://github.com/hdais/bind2other/blob/master/example/named.conf)
+  - 生成されるコンフィグファイル
+    - [dnsdist.conf](https://github.com/hdais/bind2other/blob/master/example/dnsdist.conf)
+    - [nsd.conf](https://github.com/hdais/bind2other/blob/master/example/nsd.conf)
+    - [unbound.conf](https://github.com/hdais/bind2other/blob/master/example/unbound.conf)
+  
+
 ### 基本的な動作
 
 ```
