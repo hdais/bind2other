@@ -62,12 +62,11 @@ t_file_error = t_error
 t_directory_error = t_error
 
 def t_IPSPEC(t):
-	# r'(\d+\.\d+\.\d+\.\d+|{7}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])|{1,7}({1,4}(\d|[abcdef])\:)\:{1,7}({1,4}(\d|[abcdef]))|\:\:{1,6}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])|{1,6}({1,4}(\d|[abcdef])\:){1,4}(\d|[abcdef])\:\:)/d+'
-	r'\d+\.\d+\.\d+\.\d+/\d+'
+	r'\d+\.\d+\.\d+\.\d+/\d+|[0-9a-fA-F\:]*\:+[0-9a-fA-F\:]*/\d+'
 	return t
 
 def t_IPADDR(t):
-	r'\d+\.\d+\.\d+\.\d+'
+	r'\d+\.\d+\.\d+\.\d+|[0-9a-fA-F\:]*\:+[0-9a-fA-F\:]*'
 	return t
 
 t_zone_ignore = t_ignore
@@ -202,7 +201,7 @@ def aclidtoip(acl, list):
 class Options:
 	def __init__(self, option_clause, pos):
 		self.allow_recursion = []
-		self.allow_query = ['0.0.0.0/0', '::0']
+		self.allow_query = ['0.0.0.0/0', '::0/0']
 		self.allow_transfer = []
 		self.directory = None
 		for i in option_clause:
