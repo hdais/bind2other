@@ -18,6 +18,13 @@ sudo dnsdist -C dnsdist.conf -d
 dig @127.0.0.1 example.com    # ローカルゾーン
 dig @127.0.0.1 www.google.com # ローカルゾーン以外
 ```
+
+## 必要なもの
+  - Python 2.6
+  - dnsdist 1.0.0
+  - NSD4
+  - Unbound
+
 ## どのようなコンフィグができるか?
 
   - 元の [named.conf](https://github.com/hdais/bind2other/blob/master/example/named.conf)
