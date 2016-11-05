@@ -473,12 +473,11 @@ function xfr_query(dq)
         return DNSAction.None, ""
 end
 
-addAction(NotRule(NetmaskGroupRule(allow_query)),
-        RCodeAction(dnsdist.REFUSED))
+addAction(NotRule(NetmaskGroupRule(allow_query)), RCodeAction(5)) -- RCODE 5 == REFUSED
 addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(authdomains)}), PoolAction("auth"))
 addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(allow_recursion)}), PoolAction("resolver"))
 addLuaAction(".", xfr_query)
-addAction(AllRule(), RCodeAction(dnsdist.REFUSED))
+addAction(AllRule(), RCodeAction(5)) -- RCODE 5 == REFUSED
 
 setACL({})
 addACL("0.0.0.0/0")
