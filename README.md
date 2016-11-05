@@ -61,13 +61,13 @@ BIND9のごく一部の機能のみ対応する
 
 ### ACL
 ```
-acl mynetwork1 { 10.0.0.0/8; 192.168.0.0/16 };
+acl mynetwork1 { 10.0.0.0/8; 192.168.0.0/16; };
 acl mynetwork2 { 192.0.2.1; };
 acl ournetwork { mynetwork1; mynetwork2; }; # ACLのネストもOK
 ```
 #### ACLでは否定の ! は使用不可
 ```
-# acl evil_in_theinternet { 0.0.0.0/0; ! 1.1.1.1; }; 
+# acl evil_in_the_internet { 0.0.0.0/0; ! 1.1.1.1; }; # "!" は不可
 ```
 
 ### options

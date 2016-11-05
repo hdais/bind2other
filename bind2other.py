@@ -62,11 +62,11 @@ t_file_error = t_error
 t_directory_error = t_error
 
 def t_IPSPEC(t):
-	r'\d+\.\d+\.\d+\.\d+/\d+|[0-9a-fA-F\:]*\:+[0-9a-fA-F\:]*/\d+'
+	r'\d+\.\d+\.\d+\.\d+/\d+|[0-9a-fA-F\:]+\:+[0-9a-fA-F\:]*/\d+'
 	return t
 
 def t_IPADDR(t):
-	r'\d+\.\d+\.\d+\.\d+|[0-9a-fA-F\:]*\:+[0-9a-fA-F\:]*'
+	r'\d+\.\d+\.\d+\.\d+|[0-9a-fA-F\:]+\:+[0-9a-fA-F\:]*'
 	return t
 
 t_zone_ignore = t_ignore
