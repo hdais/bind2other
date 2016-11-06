@@ -27,7 +27,13 @@ reserved = {
 	'file' : 'FILE',
 #	'notify' : 'NOTIFY',
 	'masters' : 'MASTERS',
-	'acl' : 'ACL'
+	'acl' : 'ACL',
+	'view' : 'VIEW',
+	'match-clients' : 'MATCH_CLIENTS',
+	'match-destinations' : 'MATCH_DESTINATIONS',
+	'match-recursive-only' : 'MATCH_RECURSIVE_ONLY',
+	'yes' : 'YES',
+	'no' : 'NO'
 }
 
 tokens = [
@@ -131,6 +137,7 @@ class Conf:
 		self.acl = {}
 		self.options = Options([], (0,0))
 		self.zones = []
+		self.views = []
 		for i in statements:
 			if isinstance(i, Options):
 				self.options = i
@@ -140,11 +147,16 @@ class Conf:
 				self.zones.append(i)
 			elif isinstance(i, Acl):
 				self.acl[i.name] = i.list
+			elif isinstance(i, View):
+				self.views.append(i)
+
 	def __repr__(self):
 		s = 'Conf(\n'
 		s = s + (" Acl(%s\n)" % self.acl)
 		s += ' %s,' % self.options 
 		for i in self.zones:
+			s = s + (" %s\n" % i)
+		for i in self.views:
 			s = s + (" %s\n" % i)
 		s += ')\n'
 		return s
@@ -314,6 +326,58 @@ class AllowRecursion(AllowList):
 class AllowQuery(AllowList):
 	pass
 
+class MatchClients(AllowList):
+	pass
+
+class MatchDestinations(AllowList):
+	pass
+
+class MatchRecursiveOnly:
+	def __init__(self, yesno):
+		self.yesno = yesno
+
+class View():
+	def __init__(self, name, view_clause, pos):
+		self.allow_recursion = [ "127.0.0.1", "::1" ]
+		self.allow_query = [ "0.0.0.0/0", "::0/0" ]
+		self.allow_transfer = []
+		self.zones = []
+		self.match_clients = [ '0.0.0.0/0', '::0/0' ]
+		self.match_destinations = [ '0.0.0.0/0', '::0/0' ]
+		self.match_recursive_only = False
+		self.name = name
+		for i in view_clause:
+			if isinstance(i, AllowTransfer):
+				self.allow_transfer = i.tolist()
+			elif isinstance(i, AllowRecursion):
+				self.allow_recursion = i.tolist()
+			elif isinstance(i, AllowQuery):
+				self.allow_query = i.tolist()
+			elif isinstance(i, ZoneMaster):
+				self.zones.append(i)
+			elif isinstance(i, ZoneSlave):
+				self.zones.append(i)
+			elif isinstance(i, MatchClients):
+				self.match_clients = i.allowlist
+			elif isinstance(i, MatchDestinations):
+				self.match_destinations = i.allowlist
+			elif isinstance(i, MatchRecursiveOnly):
+				self.match_recursive_only = i.yesno
+	def __repr__(self):
+		s = 'View(name="%s",\n' % self.name
+		s += '  allow_recursion=%s\n' % self.allow_recursion
+		s += '  allow_query=%s\n' % self.allow_query
+		s += '  allow_transfer=%s\n' % self.allow_transfer
+		s += '  match_clients=%s\n' % self.match_clients
+		s += '  match_destinations=%s\n' % self.match_destinations
+		s += '  match_recursive_only=%s\n' % self.match_recursive_only
+		s += '  zones=%s\n)\n' % self.zones
+		return s
+
+
+		
+
+
 def p_error(token):
 	if token is not None:
 		raise SyntaxError, "Line %s, illegal token %s" % (token.lineno, token.value)
@@ -332,8 +396,16 @@ def p_statements(p):
 	else:
 		p[0] = [p[1]]
 
+def p_statement(p):
+	'''statement : statement_options
+		| statement_zone_master
+		| statement_zone_slave
+		| statement_view
+		| statement_acl'''
+	p[0] = p[1]
+
 def p_statement_options(p):
-	'statement : OPTIONS LBRACE block_options RBRACE SEMICOLON'
+	'statement_options : OPTIONS LBRACE block_options RBRACE SEMICOLON'
 	# list of AllowTransfer, AllowQuery, AllowRecursion, Directory
 	p[0] = Options(p[3], (p.lineno(1), p.lexpos(1)))
 
@@ -357,12 +429,35 @@ def p_clause_directory(p):
 	p[0] = Directory(p[2])
 
 def p_statement_zone_master(p):
-	'statement : ZONE DOMAIN LBRACE TYPE MASTER SEMICOLON block_zone_master RBRACE SEMICOLON'
+	'statement_zone_master : ZONE DOMAIN LBRACE TYPE MASTER SEMICOLON block_zone_master RBRACE SEMICOLON'
 	p[0] = ZoneMaster(p[2], p[7] , (p.lineno(1), p.lexpos(1)))
 
 def p_statement_zone_slave(p):
-	'statement : ZONE DOMAIN LBRACE TYPE SLAVE SEMICOLON block_zone_slave RBRACE SEMICOLON'
+	'statement_zone_slave : ZONE DOMAIN LBRACE TYPE SLAVE SEMICOLON block_zone_slave RBRACE SEMICOLON'
 	p[0] = ZoneSlave(p[2], p[7], (p.lineno(1), p.lexpos(1)))
+
+def p_statement_view(p):
+	'statement_view : VIEW ID LBRACE block_view RBRACE SEMICOLON'
+	p[0] = View(p[2], p[4], (p.lineno(1), p.lexpos(1)))
+
+def p_statements_view(p):
+	'''block_view : block_view clause_view
+		| clause_view'''
+	if len(p) == 3:
+		p[0] = p[1] + [p[2]]
+	else:
+		p[0] = [p[1]]
+
+def p_clause_view(p):
+	'''clause_view : allow_transfer
+		| allow_query
+		| allow_recursion
+		| match_clients
+		| match_destinations
+		| match_recursive_only
+		| statement_zone_slave
+		| statement_zone_master'''
+	p[0] = p[1]
 
 def p_block_zone_master(p):
 	'''block_zone_master : block_zone_master clause_zone_master
@@ -397,7 +492,7 @@ def p_clause_zone_slave2(p):
 	p[0] = p[1]
 
 def p_statement_acl(p):
-	'''statement : ACL ID LBRACE ipspec_list RBRACE SEMICOLON
+	'''statement_acl : ACL ID LBRACE ipspec_list RBRACE SEMICOLON
 			| ACL DOUBLEQUOTE ID DOUBLEQUOTE LBRACE ipspec_list RBRACE SEMICOLON'''
 	if len(p) == 7:
 		p[0] = Acl(p[2], p[4], (p.lineno(1), p.lexpos(1)))
@@ -415,6 +510,22 @@ def p_clause_allow_transfer(p):
 def p_clause_allow_recursion(p):
 	'allow_recursion : ALLOW_RECURSION LBRACE ipspec_list RBRACE SEMICOLON'
 	p[0] = AllowRecursion(p[3])
+
+def p_clause_match_clients(p):
+	'match_clients : MATCH_CLIENTS LBRACE ipspec_list RBRACE SEMICOLON'
+	p[0] = MatchClients(p[3])
+
+def p_clause_match_destination(p):
+	'match_destinations : MATCH_DESTINATIONS LBRACE ipspec_list RBRACE SEMICOLON'
+	p[0] = MatchDestinations(p[3])
+
+def p_clause_match_recursive_only_yes(p):
+	'match_recursive_only : MATCH_RECURSIVE_ONLY YES SEMICOLON'
+	p[0] = MatchRecursiveOnly(True)
+
+def p_clause_match_recursive_only_no(p):
+	'match_recursive_only : MATCH_RECURSIVE_ONLY NO SEMICOLON'
+	p[0] = MatchRecursiveOnly(False)
 
 def p_ipspec_list1(p):
 	'''ipspec_list : NONE SEMICOLON
