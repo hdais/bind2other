@@ -269,7 +269,7 @@ class ZoneMaster:
 				self.also_notify = i.tolist()
 
 	def __repr__(self):
-		return 'ZoneMaster("%s", file="%s", allow_transfer=%s, also-notify=%s)' % (self.name, self.file, self.allow_transfer)
+		return 'ZoneMaster("%s", file="%s", allow_transfer=%s, also-notify=%s)' % (self.name, self.file, self.allow_transfer, self.also_notify)
 
 	def check(self):
 		if not self.file:
@@ -700,7 +700,7 @@ def nsd(conf, port_base=40000, port_control_base=41000):
 			confline += ' zonesdir: "%s"\n' % conf.options.directory
 		confline += ' ip-address: %s@%d\n' % ('127.0.0.1', port_base)
 
-		for z in conf.zones:
+		for z in v.zones:
 			confline += 'zone:\n'
 			confline += ' name:"%s"\n' % z.name
 			if isinstance(z, ZoneMaster):
