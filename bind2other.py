@@ -25,7 +25,7 @@ reserved = {
 	'master' : 'MASTER',
 	'slave' : 'SLAVE',
 	'file' : 'FILE',
-#	'notify' : 'NOTIFY',
+	'also-notify' : 'ALSO_NOTIFY',
 	'masters' : 'MASTERS',
 	'acl' : 'ACL',
 	'view' : 'VIEW',
@@ -118,7 +118,7 @@ def t_directory_SEMICOLON(t):
 
 
 def t_ID(t):
-        r'[a-zA-Z_][a-zA-Z_0-9\-]*'
+        r'[a-zA-Z][a-zA-Z_0-9\-]*'
         t.type = reserved.get(t.value,'ID')
 	if t.type == 'ZONE':
 		t.lexer.push_state('zone')
@@ -169,6 +169,7 @@ class Conf:
 				raise SyntaxError, 'Line %d: duplicate zone "%s"' % (i.pos[0], i.name)
 			zones.append(i.name)
 			i.check()
+		self.process_view()
 		self.resolvacl()
 
 	def resolvacl(self):
@@ -182,27 +183,40 @@ class Conf:
 				aclidtoip({}, self.acl[k])
 		except SyntaxError as e:
 			raise SyntaxError, '%s: too deep or cyclic acl id reference detected' % e.args
-		# resolve aclid in options.allow_query
-		self.options.allow_query = aclidtoip(self.acl, self.options.allow_query)
-		# check if all aclids are resolved
-		aclidtoip({}, self.options.allow_query)
-
-		self.options.allow_transfer = aclidtoip(self.acl, self.options.allow_transfer)
-		aclidtoip({}, self.options.allow_transfer)
-		self.options.allow_recursion = aclidtoip(self.acl, self.options.allow_recursion)
-		aclidtoip({}, self.options.allow_recursion)
-
-		for z in self.zones:
-			if z.allow_transfer:
-				z.allow_transfer = aclidtoip(self.acl, z.allow_transfer )
-				aclidtoip({}, z.allow_transfer)
+		for v in self.views:
+			v.allow_query = aclidtoip(self.acl, v.allow_query)
+			aclidtoip({}, v.allow_query)
+			v.allow_recursion = aclidtoip(self.acl, v.allow_recursion)
+			aclidtoip({}, v.allow_recursion)
+			v.allow_transfer = aclidtoip(self.acl, v.allow_transfer)
+			aclidtoip({}, v.allow_transfer)
+			for z in v.zones:
+				z.allow_transfer = aclidtoip(self.acl, z.allow_transfer)
+	def process_view(self):
+		# create default view
+		v = View('_default', [], (0,0))
+		v.allow_recursion = self.options.allow_recursion
+		v.allow_query = self.options.allow_query
+		v.allow_transfer =  self.options.allow_transfer
+		v.zones = self.zones
+		self.views.append(v)
+		for v in self.views:
+			if v.allow_query == None:
+				v.allow_query = self.options.allow_query
+			if v.allow_recursion == None:
+				v.allow_recursion = self.options.allow_recursion
+			if v.allow_transfer == None:
+				v.allow_transfer = self.options.allow_transfer
+			for z in v.zones:
+				if z.allow_transfer == None:
+					z.allow_transfer = v.allow_transfer
 
 def aclidtoip(acl, list):
 	newa = []
 	for i in list:
 		if isinstance(i, AclId):
 			ip = acl.get(i.name, None)
-			if not ip:
+			if ip == None:
 				raise SyntaxError, 'Line %d: unknown acl %s' % (i.pos[0], i.name)
 			else:
 				newa += ip
@@ -216,6 +230,7 @@ class Options:
 		self.allow_query = ['0.0.0.0/0', '::0/0']
 		self.allow_transfer = []
 		self.directory = None
+		self.also_notify = None
 		for i in option_clause:
 			if isinstance(i, Directory):
 				self.directory = i.tostr()
@@ -225,6 +240,8 @@ class Options:
 				self.allow_recursion = i.tolist()
 			elif isinstance(i, AllowQuery):
 				self.allow_query = i.tolist()
+			elif isinstance(i, AlsoNotify):
+				self.also_notify = i.tolist()
 
 	def __repr__(self):
 		s =  'Options(\n'
@@ -241,14 +258,18 @@ class ZoneMaster:
 		self.name = name
 		self.allow_transfer = None
 		self.file = None
+		self.also_notify = None
 		self.pos = pos
 		for i in zone_clause:
 			if isinstance(i, AllowTransfer):
 				self.allow_transfer = i.tolist()
 			elif isinstance(i, File):
 				self.file = i.name
+			elif isinstance(i, AlsoNotify):
+				self.also_notify = i.tolist()
+
 	def __repr__(self):
-		return 'ZoneMaster("%s", file="%s", allow_transfer=%s)' % (self.name, self.file, self.allow_transfer)
+		return 'ZoneMaster("%s", file="%s", allow_transfer=%s, also-notify=%s)' % (self.name, self.file, self.allow_transfer)
 
 	def check(self):
 		if not self.file:
@@ -264,12 +285,16 @@ class ZoneSlave:
 		self.name = name
 		self.allow_transfer = None
 		self.masters = None
+		self.also_notify = None
 		self.pos = pos
 		for i in zone_clause:
 			if isinstance(i, AllowTransfer):
 				self.allow_transfer = i.tolist()
 			elif isinstance(i, Masters):
 				self.masters = i.tolist()
+			elif isinstance(i, AlsoNotify):
+				self.also_notify = i.tolist()
+
 	def __repr__(self):
 		return 'ZoneSlave("%s", masters=%s, allow_transfer=%s)' % (self.name, self.masters, self.allow_transfer)
 	def check(self):
@@ -317,6 +342,9 @@ class IPList:
 class Masters(IPList):
 	pass
 
+class AlsoNotify(IPList):
+	pass
+
 class AllowTransfer(AllowList):
 	pass
 
@@ -338,9 +366,10 @@ class MatchRecursiveOnly:
 
 class View():
 	def __init__(self, name, view_clause, pos):
-		self.allow_recursion = [ "127.0.0.1", "::1" ]
-		self.allow_query = [ "0.0.0.0/0", "::0/0" ]
-		self.allow_transfer = []
+		self.allow_recursion = None
+		self.allow_query = None
+		self.allow_transfer = None
+		self.also_notify = None
 		self.zones = []
 		self.match_clients = [ '0.0.0.0/0', '::0/0' ]
 		self.match_destinations = [ '0.0.0.0/0', '::0/0' ]
@@ -483,6 +512,10 @@ def p_clause_zone_master2(p):
 	'clause_zone_master : allow_transfer'
 	p[0] = p[1]
 
+def p_clause_zone_master3(p):
+	'clause_zone_master : ALSO_NOTIFY LBRACE ip_list RBRACE SEMICOLON'
+	p[0] = AlsoNotify(p[3])
+
 def p_clause_zone_slave1(p):
 	'clause_zone_slave : MASTERS LBRACE ip_list RBRACE SEMICOLON'
 	p[0] = Masters(p[3])
@@ -490,6 +523,10 @@ def p_clause_zone_slave1(p):
 def p_clause_zone_slave2(p):
 	'clause_zone_slave : allow_transfer'
 	p[0] = p[1]
+
+def p_clause_zone_slave3(p):
+	'clause_zone_slave : ALSO_NOTIFY LBRACE ip_list RBRACE SEMICOLON'
+	p[0] = Masters(p[3])
 
 def p_statement_acl(p):
 	'''statement_acl : ACL ID LBRACE ipspec_list RBRACE SEMICOLON
@@ -565,100 +602,140 @@ def p_ip_list(p):
 yacc.yacc(write_tables=False, debug=False)
 
 ddtempl = '''
-pc = newPacketCache(100000)
-getPool("resolver"):setCache(pc)
-
-function xfr_query(dq)
+function xfr_query_%s(dq)
         if(dq.qtype == dnsdist.AXFR or dq.qtype == dnsdist.IXFR)
         then
-                a = allow_transfer[string.lower(dq.qname:toString())]
-		if(not (a))
-		then
-			a = allow_transfer_global
-		end
-                if(a:match(dq.remoteaddr))
+                a = %s[string.lower(dq.qname:toString())]
+                if(%s:match(dq.remoteaddr) and a:match(dq.remoteaddr))
                 then
-                	return DNSAction.Pool, "auth"
-                end
+                	return DNSAction.Pool, "%s"
+		end
         end
         return DNSAction.None, ""
 end
-
-addAction(NotRule(NetmaskGroupRule(allow_query)), RCodeAction(5)) -- RCODE 5 == REFUSED
-addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(authdomains)}), PoolAction("auth"))
-addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(allow_recursion)}), PoolAction("resolver"))
-addLuaAction(".", xfr_query)
-addAction(AllRule(), RCodeAction(5)) -- RCODE 5 == REFUSED
-
-setACL({})
-addACL("0.0.0.0/0")
-addACL("::0/0")
-controlSocket("127.0.0.1")
 '''
 
-def dnsdist(conf,
-	authaddr="127.0.0.1:10053",
-	resolveraddr="127.0.0.1:10054",
-	localaddr=["0.0.0.0:53", "[::]:53"]):
-	
+def dnsdist(conf, localaddr=["0.0.0.0:53", "[::]:53"],
+	port_base=40000):
+	authport = port_base
+	resolverport = port_base + 1
 	confline = ""
-	confline += 'newServer({address="%s", pool="resolver"})\n' % resolveraddr
-	confline += 'newServer({address="%s", pool="auth"})\n' % authaddr
 
-	confline += 'allow_query = newNMG()\n'
-	for a in conf.options.allow_query:
-		confline += 'allow_query:addMask("%s")\n' % a
+	for v in conf.views:
+		confline += '\n\n'
+		confline += '-- view "%s"\n\n' % v.name
+		auth = 'auth_' + v.name
+		resolver = 'resolver_' + v.name
+		authaddr = '127.0.0.1:%d' % authport
+		resolveraddr = '127.0.0.1:%d' % resolverport
+	
+		confline += 'newServer({address="%s", pool="%s"})\n' % (authaddr, auth)
+		confline += 'newServer({address="%s", pool="%s"})\n' % (resolveraddr, resolver)
+		confline += 'pc = newPacketCache(100000)\n'
+		confline += 'getPool("%s"):setCache(pc)\n' % resolver
+		confline += '\n'
+		match_clients = 'match_clients_' + v.name
+		match_destinations = 'match_destinations_' + v.name
+		match_recursive_only = 'match_recursive_only_' + v.name
+		allow_query = 'allow_query_' + v.name
+		allow_recursion = 'allow_recursion_' + v.name
+		allow_transfer = 'allow_transfer_' + v.name
+		authdomains = 'authdomains_' + v.name
 
-	confline += 'allow_recursion = newNMG()\n'
-	for a in conf.options.allow_recursion:
-		confline += 'allow_recursion:addMask("%s")\n' % a
+		confline +='%s = newNMG()\n' % match_clients
+		for a in v.match_clients:
+			confline +='%s:addMask("%s")\n' % (match_clients, a)
+		confline +='%s = newNMG()\n' % match_destinations
+		for a in v.match_destinations:
+			confline +='%s:addMask("%s")\n' % (match_destinations, a)
+		confline += '%s = newNMG()\n' % allow_query
+		for a in v.allow_query:
+			confline += '%s:addMask("%s")\n' % (allow_query, a)
 
-	confline += 'allow_transfer_global = newNMG()\n'
-	for a in conf.options.allow_transfer:
-		confline += 'allow_transfer_global:addMask("%s")\n' % a
+		confline += '%s = newNMG()\n' % allow_recursion
+		for a in v.allow_recursion:
+			confline += '%s:addMask("%s")\n' % (allow_recursion, a)
 
-	confline += 'allow_transfer = {}\n'
-	confline += 'authdomains = newSuffixMatchNode()\n'
-	for z in conf.zones:
-		zone = z.name
-		confline += 'authdomains:add(newDNSName("%s"))\n' % zone
-		if z.allow_transfer:
-			confline += 'allow_transfer["%s"] = newNMG()\n' % zone
+		confline += '%s = newSuffixMatchNode()\n' % authdomains
+		confline += '%s = {}\n' % allow_transfer
+
+		for z in v.zones:
+			confline += '%s:add(newDNSName("%s"))\n' % (authdomains, z.name)
+			confline += '%s["%s"] = newNMG()\n' % (allow_transfer, z.name)
 			for a in z.allow_transfer:
-				confline += 'allow_transfer["%s"]:addMask("%s")\n' % (zone, a)
+				confline += '%s["%s"]:addMask("%s")\n' % (allow_transfer, z.name, a)
+
+		confline += '\n'
+		confline += ddtempl % (v.name, allow_transfer, match_clients, auth)
+		confline += '\n'
+
+		if v.name == '_default':
+			confline += 'addAction(AndRule({NotRule(NetmaskGroupRule(%s))}), RCodeAction(5))\n' % allow_query
+			confline += 'addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(%s)}), PoolAction("%s"))\n' % (authdomains, auth)
+			confline += 'addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(%s)}), PoolAction("%s"))\n' % (match_clients, resolver)
+		else:
+			confline += 'addAction(AndRule({NetmaskGroupRule(%s), NotRule(NetmaskGroupRule(%s))}), RCodeAction(5))\n' % (match_clients, allow_query)
+                        confline += 'addAction(AndRule({NetmaskGroupRule(%s), NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(%s)}), PoolAction("%s"))\n' % (match_clients, authdomains, auth)
+                        confline += 'addAction(AndRule({NetmaskGroupRule(%s), NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(%s)}), PoolAction("%s"))\n' % (match_clients, allow_recursion, resolver)
+
+		confline += 'addLuaAction(".", xfr_query_%s)\n' % v.name
+		authport += 2
+		resolverport += 2
+
+	confline += 'addAction(AllRule(), RCodeAction(5))\n\n'
+	confline += 'setACL({})\n'
+	confline += 'addACL("0.0.0.0/0")\n'
+	confline += 'addACL("::0/0")\n'
+	confline += 'controlSocket("127.0.0.1")\n\n'
 	for l in localaddr:
 		confline += 'addLocal("%s")\n' % l
-	return confline + ddtempl
-
-def nsd(conf, authaddr="127.0.0.1:10053"):
-	confline = ""
-	confline += 'server:\n'
-	if conf.options.directory:
-		confline += ' zonesdir: "%s"\n' % conf.options.directory
-	confline += ' ip-address: %s\n' % authaddr.replace(':', '@')
-	#confline += ' username: ""\n'
-	#confline += ' chroot: ""\n'
-
-	for z in conf.zones:
-		confline += 'zone:\n'
-		confline += ' name:"%s"\n' % z.name
-		if isinstance(z, ZoneMaster):
-			confline += ' zonefile: "%s"\n' % z.file
-			confline += ' provide-xfr: 127.0.0.1 NOKEY\n'
-		elif isinstance(z, ZoneSlave):
-			for m in z.masters:
-				confline += ' request-xfr: %s NOKEY\n' % m
-
 	return confline
 
-def unbound(conf, resolveraddr="127.0.0.1:10054"):
-	confline = ""
-	confline += 'server:\n'
-	confline += ' interface: %s\n' % resolveraddr.replace(':', '@')
-	confline += ' access-control: 127.0.0.1 allow\n'
-	# confline += ' username: ""\n'
-	# confline += ' chroot: ""\n'
-	return confline
+def nsd(conf, port_base=40000, port_control_base=41000):
+	c = []
+	for v in conf.views:
+		confline = ""
+		confline += 'server:\n'
+		if conf.options.directory:
+			confline += ' zonesdir: "%s"\n' % conf.options.directory
+		confline += ' ip-address: %s@%d\n' % ('127.0.0.1', port_base)
+
+		for z in conf.zones:
+			confline += 'zone:\n'
+			confline += ' name:"%s"\n' % z.name
+			if isinstance(z, ZoneMaster):
+				confline += ' zonefile: "%s"\n' % z.file
+				confline += ' provide-xfr: 127.0.0.1 NOKEY\n'
+			elif isinstance(z, ZoneSlave):
+				for m in z.masters:
+					confline += ' request-xfr: %s NOKEY\n' % m
+		confline +='\n'
+		if v.name != '_default':
+			confline += 'remote-control:\n'
+			confline += ' control-port: %d\n' % port_control_base
+		c.append((v.name, confline))
+		port_base += 2
+		port_control_base +=2
+	return c
+
+
+def unbound(conf, port_base=40000, port_control_base=41000):
+	c = []
+	port_base += 1
+	port_control_base += 1
+	for v in conf.views:
+		confline = ""
+		confline += 'server:\n'
+		confline += ' interface: %s@%d\n' % ('127.0.0.1', port_base)
+		confline += ' access-control: 127.0.0.1 allow\n'
+		if v.name != '_default':
+			confline += 'remote-control:\n'
+			confline += ' control-port: %d\n' % port_control_base
+		c.append((v.name, confline))
+		port_base +=2
+		port_control_base += 2
+	return c
+
 
 import sys
 
@@ -670,9 +747,20 @@ if __name__ == '__main__':
 	f = open('dnsdist.conf', 'w')
 	f.write(dnsdist(conf))
 
-	f = open('nsd.conf', 'w')
-	f.write(nsd(conf))
+	for c in nsd(conf):
+		if c[0] == '_default':
+			filename = 'nsd.conf'
+		else:
+			filename = 'nsd_' + c[0] + '.conf'
+		f = open(filename, 'w')
+		f.write(c[1])
 
-	f = open('unbound.conf', 'w')
-	f.write(unbound(conf))
+	for c in unbound(conf):
+		if c[0] == '_default':
+			filename = 'unbound.conf'
+		else:
+			filename = 'unbound_' + c[0] + '.conf'
+		f = open(filename, 'w')
+		f.write(c[1])
+
 

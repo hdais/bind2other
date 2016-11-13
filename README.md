@@ -104,3 +104,34 @@ zone "example2.com" {
 };
 ```
 
+### view
+
+match-clients のみ対応。
+
+  - 元の [named.conf](https://github.com/hdais/bind2other/blob/master/example/view/named.conf)
+  - 生成されるコンフィグファイル
+    - [dnsdist.conf](https://github.com/hdais/bind2other/blob/master/example/view/dnsdist.conf)
+    - internal view用 nsd/unboundコンフィグ
+      - [nsd_internal.conf](https://github.com/hdais/bind2other/blob/master/example/view/nsd_internal.conf)
+      - [unbound_internal.conf](https://github.com/hdais/bind2other/blob/master/example/view/unbound_internal.conf)
+    - external view用 nsd/unboundコンフィグ
+      - [nsd_external.conf](https://github.com/hdais/bind2other/blob/master/example/view/nsd_external.conf)
+      - [unbound_external.conf](https://github.com/hdais/bind2other/blob/master/example/view/unbound_external.conf)
+    - デフォルトview用 nsd/unboundコンフィグ　
+      - [nsd.conf](https://github.com/hdais/bind2other/blob/master/example/view/nsd.conf)
+      - [unbound.conf](https://github.com/hdais/bind2other/blob/master/example/view/unbound.conf)
+
+#### 起動方法
+dnsdist.confでdnsdistを、各viewに対応するコンフィグでnsd/unboundを起動
+
+```
+sudo nsd -c nsd.conf
+sudo nsd -c nsd_external.conf
+sudo nsd -c nsd_internal.conf
+
+sudo unbound -c unbound.conf
+sudo unbound -c unbound_external.conf
+sudo unbound -c unbound_internal.conf
+
+sudo dnsdist -C dnsdist.conf -d
+```
