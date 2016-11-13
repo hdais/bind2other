@@ -190,6 +190,8 @@ class Conf:
 			aclidtoip({}, v.allow_recursion)
 			v.allow_transfer = aclidtoip(self.acl, v.allow_transfer)
 			aclidtoip({}, v.allow_transfer)
+			v.match_clients = aclidtoip(self.acl, v.match_clients)
+			aclidtoip({}, v.match_clients) 
 			for z in v.zones:
 				z.allow_transfer = aclidtoip(self.acl, z.allow_transfer)
 	def process_view(self):
