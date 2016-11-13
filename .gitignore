@@ -1,3 +1,4 @@
 *.pyc
 *.conf
 !example/*
+!example/view/*
