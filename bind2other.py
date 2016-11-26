@@ -674,7 +674,7 @@ def dnsdist(conf, localaddr=["0.0.0.0:53", "[::]:53"],
 		if v.name == '_default':
 			confline += 'addAction(AndRule({NotRule(NetmaskGroupRule(%s))}), RCodeAction(5))\n' % allow_query
 			confline += 'addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(%s)}), PoolAction("%s"))\n' % (authdomains, auth)
-			confline += 'addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(%s)}), PoolAction("%s"))\n' % (match_clients, resolver)
+			confline += 'addAction(AndRule({NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), NetmaskGroupRule(%s)}), PoolAction("%s"))\n' % (allow_recursion, resolver)
 		else:
 			confline += 'addAction(AndRule({NetmaskGroupRule(%s), NotRule(NetmaskGroupRule(%s))}), RCodeAction(5))\n' % (match_clients, allow_query)
                         confline += 'addAction(AndRule({NetmaskGroupRule(%s), NotRule(QTypeRule(dnsdist.AXFR)), NotRule(QTypeRule(dnsdist.IXFR)), SuffixMatchNodeRule(%s)}), PoolAction("%s"))\n' % (match_clients, authdomains, auth)
