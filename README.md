@@ -2,6 +2,8 @@
 
 named.conf から、それとなるべく同等の動きをする NSD, Unbound, dnsdist のコンフィグを作る
 
+  - [Internet Week 2016 DNSOPS.JP BoF プレゼン資料](http://dnsops.jp/bof/20161201/bind2other.pdf)
+
 ## 使い方
 
 ```
